@@ -40,7 +40,7 @@ Follow [here](https://github.com/knorth55/vive_ros)
 ```bash
 mkdir ~/ros/vive_ws/src -p
 cd ~/ros/vive_ws/src
-wget https://raw.githubusercontent.com/knorth55/eus_vive/master/kinetic.rosinstall?token=ACG6QX52S5VO7PR2KBUVDBC5JUNWY -O .rosinstall
+wget https://raw.githubusercontent.com/jsk-ros-pkg/jsk_control/master/kinetic.rosinstall -O .rosinstall
 wstool up
 rosdep install --ignore-src --from-path . -y -r -i
 cd ~/ros/vive_ws
@@ -157,5 +157,3 @@ You can enable arm mode of right and left arm separately.
 - Trial 3: https://drive.google.com/open?id=10XZ_5bBKgEk_QqtONCfnXYRLKTE6rpgE
 - Trial 4: https://drive.google.com/open?id=1IyVME3OggckIfDYCDwIjQmdNneWYdXWd
 - Trial 5: https://drive.google.com/open?id=1jwq_UdDzgDf-UfBpAS0G0KeykvZ-gLhW
-
-
