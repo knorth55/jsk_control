@@ -1,0 +1,105 @@
+<launch>
+  <param name="robot/database" value="jsk_robot_lifelog"/>
+  <param name="robot/type" value="baxter"/>
+  <param name="robot/name" value="baxter"/>
+
+  <arg name="twitter" default="true" />
+  <arg name="output" default="screen" />
+  <arg name="log_rate" default="5.0" />
+  <arg name="respawn" default="true" />
+  <arg name="enable_monitor" default="false" />
+  <arg name="vital_check" default="true" />
+  <arg name="debug" default="false" />
+
+  <include file="$(find jsk_robot_startup)/lifelog/common_logger.launch">
+    <arg name="save_rgb" value="true" />
+    <arg name="save_depth" value="true" />
+    <arg name="save_tf" value="true" />
+    <arg name="save_joint_states" value="true" />
+    <arg name="save_smach" value="false" />
+    <arg name="save_speech" value="false" />
+    <arg name="save_base_trajectory" value="false" />
+    <arg name="save_object_detection" value="false" />
+    <arg name="save_action" value="true" />
+    <arg name="save_app" value="false" />
+
+    <arg name="camera_ns" value="realsense" />
+    <arg name="rgb_ns" value="color" />
+    <arg name="rgb_suffix" value="/compressed"/>
+    <arg name="depth_ns" value="depth_registered/sw_registered" />
+    <arg name="depth_suffix" value="/compressedDepth"/>
+    <arg name="camera_info_topic" value="camera_info" />
+    <arg name="rgb_topic" value="image_rect_color" />
+    <arg name="depth_topic" value="image_rect_raw" />
+    <arg name="joint_states_topic" value="robot/joint_states" />
+
+    <arg name="enable_monitor" value="$(arg enable_monitor)" />
+    <arg name="log_rate" value="$(arg log_rate)" />
+    <arg name="launch_manager" value="true" />
+    <arg name="respawn" value="$(arg respawn)" />
+    <arg name="approximate_sync" value="true"/>
+    <arg name="vital_check" value="$(arg vital_check)" />
+    <arg name="debug" value="$(arg debug)" />
+  </include>
+
+  <rosparam ns="lifelog/joint_states_throttle">
+    periodic: false
+    threshold: 0.01
+  </rosparam>
+
+  <rosparam ns="lifelog/action_logger">
+    white_list:
+      type:
+      - control_msgs/FollowJointTrajectoryActionFeedback
+      - control_msgs/FollowJointTrajectoryActionGoal
+      - control_msgs/FollowJointTrajectoryActionResult
+      - control_msgs/GripperCommandActionFeedback
+      - control_msgs/GripperCommandActionGoal
+      - control_msgs/GripperCommandActionResult
+      - control_msgs/SingleJointPositionActionResult
+      - control_msgs/SingleJointPositionActionGoal
+      - sound_play/SoundRequestActionResult
+      - sound_play/SoundRequestActionGoal
+  </rosparam>
+
+  <group ns="lifelog">
+    <node name="eus_vive_status_throttle"
+          pkg="jsk_topic_tools" type="lightweight_throttle"
+          respawn="$(arg respawn)">
+      <remap from="~input" to="/eus_vive/status" />
+      <rosparam subst_value="true">
+        update_rate: $(arg log_rate)
+      </rosparam>
+    </node>
+    <node name="eus_vive_status_logger"
+          pkg="jsk_robot_startup" type="lightweight_logger"
+          respawn="$(arg respawn)">
+      <remap from="~input" to="eus_vive_status_throttle/output" />
+      <rosparam subst_value="true">
+        enable_monitor: $(arg enable_monitor)
+        monitor_topic: /eus_vive/status
+        vital_check: $(arg vital_check)
+      </rosparam>
+    </node>
+  </group>
+
+  <!-- tweeting robot warning data and etc. -->
+  <include file="$(find jsk_robot_startup)/lifelog/tweet.launch" if="$(arg twitter)">
+    <arg name="robot_name" value="Baxter"/>
+    <arg name="worktime_enable" value="true"/>
+    <arg name="uptime_enable" value="false"/>
+    <arg name="tablet_enable" value="false"/>
+    <arg name="warning_enable" value="false"/>
+    <arg name="motor_subscribe" value="true"/>
+    <arg name="odom_subscribe" value="false"/>
+    <arg name="joint_state_subscribe" value="true"/>
+    <arg name="position_diff_threshold" default="0.01"/>
+    <arg name="remap_motor_state" value="/robot/servo_state"/>
+    <arg name="remap_joint_states" value="/robot/joint_states"/>
+    <arg name="image_topics" value="/realsense/color/image_rect_color"/>
+    <arg name="machine" value="localhost"/>
+    <arg name="output" value="screen"/>
+    <arg name="account_info" value="/var/lib/robot/twitter_account_baxter_jsk.yaml" />
+  </include>
+
+</launch>

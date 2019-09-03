@@ -1,0 +1,127 @@
+<launch>
+  <arg name="main" default="true" />
+  <arg name="vive" default="true" />
+  <arg name="head" default="false" />
+  <arg name="mirror" default="false" />
+  <arg name="realsense" default="true" />
+  <arg name="logging" default="true" />
+  <arg name="twitter" default="true" />
+  <arg name="debug" default="false" />
+  <arg name="mask_rcnn" default="false" />
+  <arg name="miraikan" default="false" />
+
+  <arg name="finger" default="standard_narrow" />
+  <arg name="finger_tip" default="paddle_tip" />
+  <arg name="xdisplay_max_width" default="1024" if="$(arg miraikan)" />
+  <arg name="xdisplay_max_width" default="1920" unless="$(arg miraikan)" />
+  <arg name="xdisplay_max_height" default="600" if="$(arg miraikan)" />
+  <arg name="xdisplay_max_height" default="1200" unless="$(arg miraikan)" />
+
+  <param name="robot_description"
+         command="$(find xacro)/xacro $(find eus_vive)/urdf/baxter.urdf.xacro gazebo:=false
+                  left_electric_gripper:=true right_electric_gripper:=true
+                  finger:=$(arg finger) finger_tip:=$(arg finger_tip)"/>
+
+  <param name="robot_description_semantic"
+         command="$(find xacro)/xacro.py --inorder
+                  $(find baxter_moveit_config)/config/baxter.srdf.xacro
+                  left_electric_gripper:=true right_electric_gripper:=true
+                  left_tip_name:=left_gripper right_tip_name:=right_gripper"/>
+
+
+  <include file="$(find jsk_baxter_startup)/baxter.launch">
+    <arg name="load_robot_description" value="false" />
+    <arg name="launch_robot_state_publisher" value="true" />
+    <arg name="sanity_check_joint_trajectory" value="false" />
+    <arg name="launch_moveit" value="false" />
+    <arg name="launch_time_signal" value="false" />
+    <arg name="launch_db" value="false"/>
+    <arg name="launch_twitter" value="false"/>
+    <arg name="launch_gripper_action" value="true" />
+    <arg name="left_electric_gripper" value="true" />
+    <arg name="right_electric_gripper" value="true" />
+    <arg name="arm_interpolation" value="bezier_with_velocity" />
+    <arg name="arm_control_mode" value="velocity" />
+  </include>
+
+  <include file="$(find eus_vive)/launch/include/vive.launch" if="$(arg vive)" />
+
+  <group if="$(arg main)">
+    <group if="$(arg mirror)">
+      <node if="$(arg head)" pkg="eus_vive" type="baxter-vive.l" name="baxter_vive_main"
+            args="&quot;(main :head t :mirror t :loop-enable nil)&quot;" output="screen" />
+      <node unless="$(arg head)" pkg="eus_vive" type="baxter-vive.l" name="baxter_vive_main"
+            args="&quot;(main :head nil :mirror t :loop-enable nil)&quot;" output="screen" />
+    </group>
+    <group unless="$(arg mirror)">
+      <node if="$(arg head)" pkg="eus_vive" type="baxter-vive.l" name="baxter_vive_main"
+            args="&quot;(main :head t :mirror nil :loop-enable nil)&quot;" output="screen" />
+      <node unless="$(arg head)" pkg="eus_vive" type="baxter-vive.l" name="baxter_vive_main"
+            args="&quot;(main :head nil :mirror nil :loop-enable nil)&quot;" output="screen" />
+    </group>
+  </group>
+
+  <node name="rosconsole_overlay_text"
+        pkg="jsk_rviz_plugins" type="rosconsole_overlay_text.py">
+    <rosparam>
+      nodes:
+        - /baxter_vive_main
+      exclude_regexes:
+        - .*follow_joint_trajectory.*
+        - .*:joint-angle.*
+        - .*:wait-interpolation-until.*
+        - ^;;.*
+        - if you do not have gripper,.*
+    </rosparam>
+  </node>
+
+  <node name="eus_vive_status_visualizer"
+      pkg="eus_vive" type="eus_vive_status_visualizer.py">
+    <remap from="~input/image" to="/eus_vive/irtviewer/image" />
+    <remap from="~input/status" to="/eus_vive/status" />
+  </node>
+
+  <node name="eus_vive_status_sounder"
+      pkg="eus_vive" type="eus_vive_status_sounder.py">
+    <remap from="~output/sound" to="/robotsound" />
+    <remap from="~input/status" to="/eus_vive/status" />
+  </node>
+
+  <node name="irtviewer_xdisplay"
+        pkg="jsk_baxter_startup" type="xdisplay_image_topic.py"
+        args="/eus_vive_status_visualizer/output/image">
+    <rosparam subst_value="true">
+      max_width: $(arg xdisplay_max_width)
+      max_height: $(arg xdisplay_max_height)
+    </rosparam>
+  </node>
+
+  <include file="$(find eus_vive)/launch/include/realsense.launch" if="$(eval realsense or mask_rcnn or logging)" />
+  <include file="$(find eus_vive)/launch/include/mask_rcnn.launch" if="$(arg mask_rcnn)" >
+    <arg name="INPUT_IMAGE" value="/realsense/color/image_rect_color" />
+  </include>
+
+  <node name="soundplay_node"
+        pkg="sound_play" type="soundplay_node.py">
+    <remap from="sound_play" to="robotsound" />
+  </node>
+  <node name="soundplay_jp_node"
+        pkg="sound_play" type="soundplay_node.py">
+    <remap from="robotsound" to="robotsound_jp" />
+    <remap from="sound_play" to="robotsound_jp" />
+  </node>
+
+  <include file="$(find eus_vive)/launch/baxter/baxter_logging.launch" if="$(arg logging)">
+    <arg name="twitter" value="$(arg twitter)" />
+    <arg name="debug" value="$(arg debug)" />
+  </include>
+
+  <node name="service_button" pkg="jsk_rqt_plugins" type="rqt_service_buttons">
+    <rosparam subst_value="true" >
+      layout_yaml_file: file://$(find eus_vive)/resource/reset_button_layout.yaml 
+    </rosparam>
+  </node>
+
+  <node name="$(anon rviz)" pkg="rviz" type="rviz"
+        args="-d $(find eus_vive)/rvizconfig/baxter/baxter_vive.rviz" />
+</launch>
